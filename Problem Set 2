@@ -1,0 +1,202 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+#define MAX_STUDENTS 100
+#define MAX_NAME_LENGTH 100
+#define MAX_EMAIL_LENGTH 150
+#define DOMAIN "@university.edu"
+// Student structure
+typedef struct {
+ char name[MAX_NAME_LENGTH];
+ char studentID[20];
+ char email[MAX_EMAIL_LENGTH];
+} Student;
+// Global array to store students
+Student students[MAX_STUDENTS];
+int studentCount = 0;
+// Function prototypes
+void toLowerCase(char *str);
+void generateEmail(char *name, char *studentID, char *email);
+int isDuplicateEmail(char *email);
+void addStudent();
+void lookupStudent();
+void displayAllStudents();
+void clearInputBuffer();
+int main() {
+ int choice;
+
+ printf("===================================\n");
+ printf(" STUDENT EMAIL GENERATOR\n");
+ printf("===================================\n\n");
+
+ do {
+ printf("\n--- MENU ---\n");
+ printf("1. Add Student\n");
+ printf("2. Lookup Student Email by ID\n");
+ printf("3. Display All Students\n");
+ printf("4. Exit\n");
+ printf("Enter choice: ");
+ scanf("%d", &choice);
+ clearInputBuffer();
+
+ switch(choice) {
+ case 1:
+ addStudent();
+ break;
+ case 2:
+ lookupStudent();
+ break;
+ case 3:
+ displayAllStudents();
+ break;
+ case 4:
+ printf("\nExiting system. Goodbye!\n");
+ break;
+ default:
+ printf("\nInvalid choice! Please try again.\n");
+ }
+ } while(choice != 4);
+
+ return 0;
+}
+// Convert string to lowercase
+void toLowerCase(char *str) {
+ for(int i = 0; str[i]; i++) {
+ str[i] = tolower(str[i]);
+ }
+}
+// Generate email from name and student ID
+void generateEmail(char *name, char *studentID, char *email) {
+ char tempName[MAX_NAME_LENGTH];
+ char baseEmail[MAX_EMAIL_LENGTH];
+ int idLen = strlen(studentID);
+
+ // Copy name to temp buffer
+ strcpy(tempName, name);
+ toLowerCase(tempName);
+
+ // Replace spaces with dots and build email prefix
+ char emailPrefix[MAX_EMAIL_LENGTH] = "";
+ char *token = strtok(tempName, " ");
+ int firstToken = 1;
+
+ while(token != NULL) {
+ if(!firstToken) {
+ strcat(emailPrefix, ".");
+ }
+ strcat(emailPrefix, token);
+ firstToken = 0;
+ token = strtok(NULL, " ");
+ }
+
+ // Get last 2 digits of student ID
+ char lastTwoDigits[3];
+ if(idLen >= 2) {
+ lastTwoDigits[0] = studentID[idLen - 2];
+ lastTwoDigits[1] = studentID[idLen - 1];
+ lastTwoDigits[2] = '\0';
+ } else {
+ strcpy(lastTwoDigits, studentID);
+ }
+
+ // Create base email
+ sprintf(baseEmail, "%s%s%s", emailPrefix, lastTwoDigits, DOMAIN);
+ strcpy(email, baseEmail);
+
+ // Check for duplicates and handle them
+ int duplicateCount = 0;
+ while(isDuplicateEmail(email)) {
+ duplicateCount++;
+ // Remove domain, add sequence number, then re-add domain
+ char tempEmail[MAX_EMAIL_LENGTH];
+ strcpy(tempEmail, baseEmail);
+ // Remove @university.edu
+ tempEmail[strlen(tempEmail) - strlen(DOMAIN)] = '\0';
+ sprintf(email, "%s_%d%s", tempEmail, duplicateCount, DOMAIN);
+ }
+}
+// Check if email already exists
+int isDuplicateEmail(char *email) {
+ for(int i = 0; i < studentCount; i++) {
+ if(strcmp(students[i].email, email) == 0) {
+ return 1;
+ }
+ }
+ return 0;
+}
+// Add a new student
+void addStudent() {
+ if(studentCount >= MAX_STUDENTS) {
+ printf("\nError: Maximum student limit reached!\n");
+ return;
+ }
+
+ printf("\n--- Add New Student ---\n");
+ printf("Enter student name: ");
+ fgets(students[studentCount].name, MAX_NAME_LENGTH, stdin);
+ students[studentCount].name[strcspn(students[studentCount].name, "\n")] = 0; //
+Remove newline
+
+ printf("Enter student ID: ");
+ fgets(students[studentCount].studentID, 20, stdin);
+ students[studentCount].studentID[strcspn(students[studentCount].studentID, "\n")] =
+0;
+
+ // Generate email
+ generateEmail(students[studentCount].name, students[studentCount].studentID,
+ students[studentCount].email);
+
+ printf("\nStudent added successfully!\n");
+ printf("Generated Email: %s\n", students[studentCount].email);
+
+ studentCount++;
+}
+// Lookup student by ID
+void lookupStudent() {
+ char searchID[20];
+ int found = 0;
+
+ printf("\n--- Lookup Student Email ---\n");
+ printf("Enter student ID: ");
+ fgets(searchID, 20, stdin);
+ searchID[strcspn(searchID, "\n")] = 0;
+
+ for(int i = 0; i < studentCount; i++) {
+ if(strcmp(students[i].studentID, searchID) == 0) {
+ printf("\nStudent Found:\n");
+ printf("Name: %s\n", students[i].name);
+ printf("Student ID: %s\n", students[i].studentID);
+ printf("Email: %s\n", students[i].email);
+ found = 1;
+ break;
+ }
+ }
+
+ if(!found) {
+ printf("\nStudent with ID '%s' not found!\n", searchID);
+ }
+}
+// Display all students
+void displayAllStudents() {
+ if(studentCount == 0) {
+ printf("\nNo students in the system yet.\n");
+ return;
+ }
+
+ printf("\n--- All Students ---\n");
+ printf("%-30s %-15s %-40s\n", "Name", "Student ID", "Email");
+ printf("--------------------------------------------------------------------------------\n");
+
+ for(int i = 0; i < studentCount; i++) {
+ printf("%-30s %-15s %-40s\n",
+ students[i].name,
+ students[i].studentID,
+ students[i].email);
+ }
+}
+// Clear input buffer
+void clearInputBuffer() {
+ int c;
+ while((c = getchar()) != '\n' && c != EOF);
+}
