@@ -1,0 +1,136 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+#include <stdint.h>
+// Function Prototypes
+void print_conversions(uint32_t ip);
+int parse_dotted_decimal(const char *input, uint32_t *result);
+int parse_binary(const char *input, uint32_t *result);
+int parse_hex(const char *input, uint32_t *result);
+void trim_newline(char *str);
+int main() {
+ char input[100];
+ uint32_t ip_value = 0;
+ int parsed = 0;
+ printf("Enter IP Address (Decimal/Binary/Hex): \n");
+ if (fgets(input, sizeof(input), stdin) == NULL) {
+ return 1;
+ }
+ trim_newline(input);
+ // 1. Try to detect and parse Dotted Decimal (contains '.')
+ if (strchr(input, '.') != NULL) {
+ if (parse_dotted_decimal(input, &ip_value)) {
+ parsed = 1;
+ } else {
+ printf("Error: Invalid Dotted-Decimal format.\n");
+ }
+ }
+ // 2. Try to detect and parse Binary (length must be 32)
+ else if (strlen(input) == 32) {
+ if (parse_binary(input, &ip_value)) {
+ parsed = 1;
+ } else {
+ printf("Error: Invalid Binary format (must contain only 0 and 1).\n");
+ }
+ }
+ // 3. Try to detect and parse Hex (length must be 8)
+ else if (strlen(input) == 8) {
+ if (parse_hex(input, &ip_value)) {
+ parsed = 1;
+ } else {
+ printf("Error: Invalid Hex format.\n");
+ }
+ }
+ else {
+ printf("Error: Input unrecognized. Check length or format.\n");
+ }
+ // 4. If parsing was successful, print all formats
+ if (parsed) {
+ print_conversions(ip_value);
+ }
+ return 0;
+}
+// --- Logic Implementation ---
+// Helper: Removes newline character from fgets input
+void trim_newline(char *str) {
+ size_t len = strlen(str);
+ if (len > 0 && str[len - 1] == '\n') {
+ str[len - 1] = '\0';
+ }
+}
+// Logic to print the IP in all three formats using Bitwise Operators
+void print_conversions(uint32_t ip) {
+ // 1. Print Decimal
+ // Extract octets by shifting and masking
+ unsigned int o1 = (ip >> 24) & 0xFF;
+ unsigned int o2 = (ip >> 16) & 0xFF;
+ unsigned int o3 = (ip >> 8) & 0xFF;
+ unsigned int o4 = ip & 0xFF;
+ printf("\nOutput:\n");
+ printf("Decimal: %u.%u.%u.%u\n", o1, o2, o3, o4);
+ // 2. Print Binary
+ printf("Binary : ");
+ for (int i = 31; i >= 0; i--) {
+ // Check if the bit at position 'i' is set
+ int bit = (ip >> i) & 1;
+ printf("%d", bit);
+
+ // Add a dot after every 8 bits, but not at the very end
+ if (i % 8 == 0 && i != 0) {
+ printf(".");
+ }
+ }
+ printf("\n");
+ // 3. Print Hexadecimal
+ // %08X prints 8 digits, padding with zeros, uppercase hex
+ printf("Hex : %08X\n", ip);
+}
+// Parse "192.168.1.1" -> uint32
+int parse_dotted_decimal(const char *input, uint32_t *result) {
+ int octets[4];
+ // sscanf is standard C, checks for format.
+ // It is generic and does not violate "no IP libraries" rule.
+ int count = sscanf(input, "%d.%d.%d.%d", &octets[0], &octets[1], &octets[2], &octets[3]);
+ if (count != 4) return 0; // Failed to read 4 parts
+ // Validate 0-255 range
+ for(int i = 0; i < 4; i++) {
+ if (octets[i] < 0 || octets[i] > 255) return 0;
+ }
+ // Combine octets into one 32-bit integer
+ *result = (octets[0] << 24) | (octets[1] << 16) | (octets[2] << 8) | octets[3];
+ return 1;
+}
+// Parse 32-bit string "1100..." -> uint32
+int parse_binary(const char *input, uint32_t *result) {
+ uint32_t val = 0;
+ for (int i = 0; i < 32; i++) {
+ if (input[i] == '1') {
+ // Set the bit. (31 - i) because string index 0 is the Most Significant Bit (bit 31)
+ val |= (1U << (31 - i));
+ } else if (input[i] == '0') {
+ // Do nothing, bit is already 0
+ } else {
+ return 0; // Invalid char found
+ }
+ }
+ *result = val;
+ return 1;
+}
+// Parse 8-char hex string "C0A80101" -> uint32
+int parse_hex(const char *input, uint32_t *result) {
+ uint32_t val = 0;
+ for (int i = 0; i < 8; i++) {
+ char c = tolower(input[i]);
+ int digit;
+ if (c >= '0' && c <= '9') {
+ digit = c - '0';
+ } else if (c >= 'a' && c <= 'f') {
+ digit = c - 'a' + 10;
+ } else {
+ return 0; // Invalid hex char
+ }
+ // Shift existing value left by 4 bits (1 hex digit) and add new digit
+ val = (val << 4) | digit;
+ }
+ *result = v
