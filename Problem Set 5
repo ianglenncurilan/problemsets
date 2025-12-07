@@ -1,0 +1,95 @@
+#include <stdio.h>
+#include <stdlib.h>
+// --- Function Prototypes ---
+void compressFile();
+void decompressFile();
+int main() {
+ int choice;
+ do {
+ // --- Main Menu ---
+ printf("\n==========================================\n");
+ printf(" FILE COMPRESSION SIMULATOR (RLE)\n");
+ printf("==========================================\n");
+ printf("1. Compress File (input.txt -> compressed.txt)\n");
+ printf("2. Decompress File (compressed.txt -> decompressed.txt)\n");
+ printf("3. Exit\n");
+ printf("Enter your choice: ");
+ // validation to prevent infinite loops if a letter is entered
+ if (scanf("%d", &choice) != 1) {
+ while(getchar() != '\n'); // clear invalid input
+ choice = 0;
+ }
+ switch (choice) {
+ case 1:
+ compressFile();
+ break;
+ case 2:
+ decompressFile();
+ break;
+ case 3:
+ printf("Exiting application...\n");
+ break;
+ default:
+ printf("Invalid option. Please try again.\n");
+ }
+ } while (choice != 3);
+ return 0;
+}
+// --- Logic for Compression ---
+void compressFile() {
+ FILE *inFile = fopen("input.txt", "r");
+ FILE *outFile = fopen("compressed.txt", "w");
+ if (inFile == NULL) {
+ printf("\n[ERROR] 'input.txt' not found!\n");
+ printf("Make sure input.txt is in your project folder.\n");
+ return;
+ }
+ int prevChar = fgetc(inFile);
+ int currChar;
+ int count = 1;
+ // Check if file is empty
+ if (prevChar == EOF) {
+ printf("\n[WARNING] Input file is empty.\n");
+ fclose(inFile);
+ fclose(outFile);
+ return;
+ }
+ // Loop until the end of the file
+ while ((currChar = fgetc(inFile)) != EOF) {
+ if (currChar == prevChar) {
+ // Same character continues
+ count++;
+ } else {
+ // New character found: save the previous batch
+ fprintf(outFile, "%c%d", prevChar, count);
+ prevChar = currChar;
+ count = 1; // Reset count
+ }
+ }
+ // Write the final batch after loop finishes
+ fprintf(outFile, "%c%d", prevChar, count);
+ fclose(inFile);
+ fclose(outFile);
+ printf("\n[SUCCESS] File compressed to 'compressed.txt'\n");
+}
+// --- Logic for Decompression ---
+void decompressFile() {
+ FILE *inFile = fopen("compressed.txt", "r");
+ FILE *outFile = fopen("decompressed.txt", "w");
+ if (inFile == NULL) {
+ printf("\n[ERROR] 'compressed.txt' not found!\n");
+ printf("You must compress a file first.\n");
+ return;
+ }
+ char ch;
+ int count;
+ // Scan for pairs: One Character + One Number
+ while (fscanf(inFile, "%c%d", &ch, &count) == 2) {
+ for (int i = 0; i < count; i++) {
+ fputc(ch, outFile);
+ }
+ }
+ fclose(inFile);
+ fclose(outFile);
+ printf("\n[SUCCESS] File restored to 'decompressed.txt'\n");
+}
