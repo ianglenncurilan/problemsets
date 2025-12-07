@@ -1,0 +1,129 @@
+Using OnlineGDB is actually easier because you don't have to worry about folder paths or installing software. However, creating the text file is slightly different since everything happens in your browser.
+
+Here is the step-by-step guide for OnlineGDB.
+
+Step 1: Paste the Code
+Go to OnlineGDB.com.
+
+Ensure the language (top right dropdown) is set to C.
+
+Delete the default "Hello World" code.
+
+Copy and paste the code below (it is the same logic as before, just ready for you to copy):
+
+C
+
+#include <stdio.h>
+#include <stdlib.h>
+
+void compressFile();
+void decompressFile();
+
+int main() {
+    int choice;
+    do {
+        printf("\n--- RLE Compression Simulator ---\n");
+        printf("1. Compress (input.txt -> compressed.txt)\n");
+        printf("2. Decompress (compressed.txt -> decompressed.txt)\n");
+        printf("3. Exit\n");
+        printf("Enter choice: ");
+        
+        if (scanf("%d", &choice) != 1) {
+            while(getchar() != '\n'); 
+            choice = 0; 
+        }
+
+        switch (choice) {
+            case 1: compressFile(); break;
+            case 2: decompressFile(); break;
+            case 3: printf("Exiting...\n"); break;
+            default: printf("Invalid choice.\n");
+        }
+    } while (choice != 3);
+    return 0;
+}
+
+void compressFile() {
+    FILE *inFile = fopen("input.txt", "r");
+    FILE *outFile = fopen("compressed.txt", "w");
+
+    if (!inFile) { printf("\n[ERROR] Could not open input.txt\n"); return; }
+
+    int prev = fgetc(inFile), curr, count = 1;
+    if (prev == EOF) return;
+
+    while ((curr = fgetc(inFile)) != EOF) {
+        if (curr == prev) count++;
+        else {
+            fprintf(outFile, "%c%d", prev, count);
+            prev = curr;
+            count = 1;
+        }
+    }
+    fprintf(outFile, "%c%d", prev, count);
+    fclose(inFile); fclose(outFile);
+    printf("\n[SUCCESS] Saved to compressed.txt\n");
+}
+
+void decompressFile() {
+    FILE *inFile = fopen("compressed.txt", "r");
+    FILE *outFile = fopen("decompressed.txt", "w");
+
+    if (!inFile) { printf("\n[ERROR] Run compression first.\n"); return; }
+
+    char ch; int count;
+    while (fscanf(inFile, "%c%d", &ch, &count) == 2) {
+        for (int i = 0; i < count; i++) fputc(ch, outFile);
+    }
+    fclose(inFile); fclose(outFile);
+    printf("\n[SUCCESS] Saved to decompressed.txt\n");
+}
+Step 2: Create the Input File (Crucial Step!)
+The program needs input.txt to exist before you run it.
+
+Look at the black bar at the top of the coding area (where it says main.c).
+
+Click the New File button (it looks like a page with a + sign).
+
+A box will pop up asking for a filename. Type: input.txt
+
+Click OK.
+
+A new empty tab will open. Type your test letters inside this tab, for example:
+
+Plaintext
+
+aaaabbbccdaa
+Important: Click back on the main.c tab to return to your code.
+
+Step 3: Run the Program
+Click the green Run button at the top.
+
+Click inside the black console window at the bottom.
+
+Type 1 and press Enter.
+
+It should say: [SUCCESS] Saved to compressed.txt
+
+Step 4: How to See the Results
+In OnlineGDB, you won't see the new files pop up in the tabs automatically, but you can check them easily:
+
+Stop the program (Type 3 and Enter).
+
+Look at the "Project Files" section on the left sidebar? No, OnlineGDB usually hides generated files.
+
+To verify it worked:
+
+Click the New File button again (+).
+
+Name it compressed.txt.
+
+It might warn you it already exists, or it will open the file that your C code just created. You should see a4b3c2d1a2 inside.
+
+Or simply run the decompressor:
+
+Run the program again.
+
+Type 2 (Decompress).
+
+If it says [SUCCESS] Saved to decompressed.txt, you know the entire loop worked perfectly!
