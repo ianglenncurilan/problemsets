@@ -133,4 +133,6 @@ int parse_hex(const char *input, uint32_t *result) {
  // Shift existing value left by 4 bits (1 hex digit) and add new digit
  val = (val << 4) | digit;
  }
- *result = v
+  *result = val;
+ return 1;
+}
