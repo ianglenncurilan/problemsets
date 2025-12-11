@@ -1,63 +1,115 @@
+Curilan, Ian Glenn
+ITE 19 – E1
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#define MAX_STUDENTS 100
-#define MAX_NAME_LENGTH 100
-#define MAX_EMAIL_LENGTH 150
-#define DOMAIN "@university.edu"
-// Student structure
+#define MAX_WORD_LENGTH 100
+#define MAX_WORDS 10000
+#define MAX_STOPWORDS 500
+#define MAX_FILE_SIZE 5242880 // 5 MB in bytes
+// Structure to store word and its frequency
 typedef struct {
- char name[MAX_NAME_LENGTH];
- char studentID[20];
- char email[MAX_EMAIL_LENGTH];
-} Student;
-// Global array to store students
-Student students[MAX_STUDENTS];
-int studentCount = 0;
+ char word[MAX_WORD_LENGTH];
+ int count;
+} WordFreq;
+// Structure to store stopwords
+typedef struct {
+ char words[MAX_STOPWORDS][MAX_WORD_LENGTH];
+ int count;
+} StopWords;
 // Function prototypes
 void toLowerCase(char *str);
-void generateEmail(char *name, char *studentID, char *email);
-int isDuplicateEmail(char *email);
-void addStudent();
-void lookupStudent();
-void displayAllStudents();
-void clearInputBuffer();
+void removePunctuation(char *str);
+int isStopWord(char *word, StopWords *stopwords);
+int loadStopWords(const char *filename, StopWords *stopwords);
+long getFileSize(const char *filename);
+int processTextFile(const char *filename, WordFreq *wordList, int *wordCount, StopWords
+*stopwords);
+void sortWordsByFrequency(WordFreq *wordList, int wordCount);
+void displayResults(WordFreq *wordList, int wordCount);
+int exportResults(const char *filename, WordFreq *wordList, int wordCount);
+int addOrUpdateWord(WordFreq *wordList, int *wordCount, char *word);
 int main() {
+ WordFreq wordList[MAX_WORDS];
+ StopWords stopwords;
+ int wordCount = 0;
+ char inputFile[100], stopwordFile[100], outputFile[100];
  int choice;
 
- printf("===================================\n");
- printf(" STUDENT EMAIL GENERATOR\n");
- printf("===================================\n\n");
+ printf("====================================\n");
+ printf(" TEXT ANALYSIS TOOL\n");
+ printf("====================================\n\n");
 
- do {
- printf("\n--- MENU ---\n");
- printf("1. Add Student\n");
- printf("2. Lookup Student Email by ID\n");
- printf("3. Display All Students\n");
- printf("4. Exit\n");
- printf("Enter choice: ");
- scanf("%d", &choice);
- clearInputBuffer();
+ // Get input filenames
+ printf("Enter input text file name (default: input.txt): ");
+ fgets(inputFile, sizeof(inputFile), stdin);
+ inputFile[strcspn(inputFile, "\n")] = 0;
+ if(strlen(inputFile) == 0) strcpy(inputFile, "input.txt");
 
- switch(choice) {
- case 1:
- addStudent();
- break;
- case 2:
- lookupStudent();
- break;
- case 3:
- displayAllStudents();
- break;
- case 4:
- printf("\nExiting system. Goodbye!\n");
- break;
- default:
- printf("\nInvalid choice! Please try again.\n");
+ printf("Enter stopwords file name (default: stopwords.txt): ");
+ fgets(stopwordFile, sizeof(stopwordFile), stdin);
+ stopwordFile[strcspn(stopwordFile, "\n")] = 0;
+ if(strlen(stopwordFile) == 0) strcpy(stopwordFile, "stopwords.txt");
+
+ // Check file size
+ long fileSize = getFileSize(inputFile);
+ if(fileSize < 0) {
+ printf("\nError: Cannot access input file '%s'\n", inputFile);
+ return 1;
  }
- } while(choice != 4);
+ if(fileSize == 0) {
+ printf("\nError: Input file is empty!\n");
+ return 1;
+ }
+ if(fileSize > MAX_FILE_SIZE) {
+ printf("\nError: File size exceeds 5 MB limit!\n");
+ return 1;
+ }
 
+ printf("\nFile size: %.2f KB\n", fileSize / 1024.0);
+
+ // Load stopwords
+ printf("\nLoading stopwords...\n");
+ if(loadStopWords(stopwordFile, &stopwords) < 0) {
+ printf("Warning: Could not load stopwords file. Proceeding without stopwords.\n");
+ stopwords.count = 0;
+ } else {
+ printf("Loaded %d stopwords.\n", stopwords.count);
+ }
+
+ // Process text file
+ printf("\nProcessing text file...\n");
+ if(processTextFile(inputFile, wordList, &wordCount, &stopwords) < 0) {
+ printf("Error: Failed to process input file!\n");
+ return 1;
+ }
+
+ // Sort by frequency
+ sortWordsByFrequency(wordList, wordCount);
+
+ // Display results
+ displayResults(wordList, wordCount);
+
+ // Export option
+ printf("\nDo you want to export results to a file? (1=Yes, 0=No): ");
+ scanf("%d", &choice);
+ getchar(); // Clear newline
+
+ if(choice == 1) {
+ printf("Enter output file name (default: output.txt): ");
+ fgets(outputFile, sizeof(outputFile), stdin);
+ outputFile[strcspn(outputFile, "\n")] = 0;
+ if(strlen(outputFile) == 0) strcpy(outputFile, "output.txt");
+
+ if(exportResults(outputFile, wordList, wordCount) == 0) {
+ printf("\nResults exported successfully to '%s'\n", outputFile);
+ } else {
+ printf("\nError: Failed to export results!\n");
+ }
+ }
+
+ printf("\nAnalysis complete!\n");
  return 0;
 }
 // Convert string to lowercase
@@ -66,137 +118,151 @@ void toLowerCase(char *str) {
  str[i] = tolower(str[i]);
  }
 }
-// Generate email from name and student ID
-void generateEmail(char *name, char *studentID, char *email) {
- char tempName[MAX_NAME_LENGTH];
- char baseEmail[MAX_EMAIL_LENGTH];
- int idLen = strlen(studentID);
+// Remove punctuation from string
+void removePunctuation(char *str) {
+ int i, j = 0;
+ char temp[MAX_WORD_LENGTH];
 
- // Copy name to temp buffer
- strcpy(tempName, name);
- toLowerCase(tempName);
-
- // Replace spaces with dots and build email prefix
- char emailPrefix[MAX_EMAIL_LENGTH] = "";
- char *token = strtok(tempName, " ");
- int firstToken = 1;
-
- while(token != NULL) {
- if(!firstToken) {
- strcat(emailPrefix, ".");
+ for(i = 0; str[i]; i++) {
+ if(isalnum(str[i]) || str[i] == '\'') {
+ temp[j++] = str[i];
  }
- strcat(emailPrefix, token);
- firstToken = 0;
- token = strtok(NULL, " ");
  }
-
- // Get last 2 digits of student ID
- char lastTwoDigits[3];
- if(idLen >= 2) {
- lastTwoDigits[0] = studentID[idLen - 2];
- lastTwoDigits[1] = studentID[idLen - 1];
- lastTwoDigits[2] = '\0';
- } else {
- strcpy(lastTwoDigits, studentID);
- }
-
- // Create base email
- sprintf(baseEmail, "%s%s%s", emailPrefix, lastTwoDigits, DOMAIN);
- strcpy(email, baseEmail);
-
- // Check for duplicates and handle them
- int duplicateCount = 0;
- while(isDuplicateEmail(email)) {
- duplicateCount++;
- // Remove domain, add sequence number, then re-add domain
- char tempEmail[MAX_EMAIL_LENGTH];
- strcpy(tempEmail, baseEmail);
- // Remove @university.edu
- tempEmail[strlen(tempEmail) - strlen(DOMAIN)] = '\0';
- sprintf(email, "%s_%d%s", tempEmail, duplicateCount, DOMAIN);
- }
+ temp[j] = '\0';
+ strcpy(str, temp);
 }
-// Check if email already exists
-int isDuplicateEmail(char *email) {
- for(int i = 0; i < studentCount; i++) {
- if(strcmp(students[i].email, email) == 0) {
+// Check if word is a stopword
+int isStopWord(char *word, StopWords *stopwords) {
+ for(int i = 0; i < stopwords->count; i++) {
+ if(strcmp(word, stopwords->words[i]) == 0) {
  return 1;
  }
  }
  return 0;
 }
-// Add a new student
-void addStudent() {
- if(studentCount >= MAX_STUDENTS) {
- printf("\nError: Maximum student limit reached!\n");
+// Load stopwords from file
+int loadStopWords(const char *filename, StopWords *stopwords) {
+ FILE *file = fopen(filename, "r");
+ if(!file) return -1;
+
+ stopwords->count = 0;
+ char line[MAX_WORD_LENGTH];
+
+ while(fgets(line, sizeof(line), file) && stopwords->count < MAX_STOPWORDS) {
+ line[strcspn(line, "\n")] = 0;
+ toLowerCase(line);
+ removePunctuation(line);
+
+ if(strlen(line) > 0) {
+ strcpy(stopwords->words[stopwords->count], line);
+ stopwords->count++;
+ }
+ }
+
+ fclose(file);
+ return 0;
+}
+// Get file size
+long getFileSize(const char *filename) {
+ FILE *file = fopen(filename, "r");
+ if(!file) return -1;
+
+ fseek(file, 0, SEEK_END);
+ long size = ftell(file);
+ fclose(file);
+
+ return size;
+}
+// Add or update word in the list
+int addOrUpdateWord(WordFreq *wordList, int *wordCount, char *word) {
+ // Check if word already exists
+ for(int i = 0; i < *wordCount; i++) {
+ if(strcmp(wordList[i].word, word) == 0) {
+ wordList[i].count++;
+ return 0;
+ }
+ }
+
+ // Add new word
+ if(*wordCount < MAX_WORDS) {
+ strcpy(wordList[*wordCount].word, word);
+ wordList[*wordCount].count = 1;
+ (*wordCount)++;
+ return 0;
+ }
+
+ return -1;
+}
+// Process text file
+int processTextFile(const char *filename, WordFreq *wordList, int *wordCount, StopWords
+*stopwords) {
+ FILE *file = fopen(filename, "r");
+ if(!file) return -1;
+
+ char line[1024];
+ *wordCount = 0;
+
+ while(fgets(line, sizeof(line), file)) {
+ char *token = strtok(line, " \t\n\r.,;:!?\"()[]{}");
+
+ while(token != NULL) {
+ char word[MAX_WORD_LENGTH];
+ strcpy(word, token);
+
+ // Normalize word
+ toLowerCase(word);
+ removePunctuation(word);
+
+ // Skip empty words and stopwords
+ if(strlen(word) > 0 && !isStopWord(word, stopwords)) {
+ addOrUpdateWord(wordList, wordCount, word);
+ }
+
+ token = strtok(NULL, " \t\n\r.,;:!?\"()[]{}");
+ }
+ }
+
+ fclose(file);
+ return 0;
+}
+// Sort words by frequency (descending order)
+void sortWordsByFrequency(WordFreq *wordList, int wordCount) {
+ for(int i = 0; i < wordCount - 1; i++) {
+ for(int j = 0; j < wordCount - i - 1; j++) {
+ if(wordList[j].count < wordList[j + 1].count) {
+ WordFreq temp = wordList[j];
+ wordList[j] = wordList[j + 1];
+ wordList[j + 1] = temp;
+ }
+ }
+ }
+}
+// Display results
+void displayResults(WordFreq *wordList, int wordCount) {
+ printf("\n====================================\n");
+ printf("Word Frequency Count (excluding stopwords):\n");
+ printf("====================================\n");
+
+ if(wordCount == 0) {
+ printf("No words found after filtering stopwords.\n");
  return;
  }
 
- printf("\n--- Add New Student ---\n");
- printf("Enter student name: ");
- fgets(students[studentCount].name, MAX_NAME_LENGTH, stdin);
- students[studentCount].name[strcspn(students[studentCount].name, "\n")] = 0; //
-Remove newline
+ for(int i = 0; i < wordCount; i++) {
+ printf("%-20s -> %d\n", wordList[i].word, wordList[i].count);
+ }
 
- printf("Enter student ID: ");
- fgets(students[studentCount].studentID, 20, stdin);
- students[studentCount].studentID[strcspn(students[studentCount].studentID, "\n")] =
-0;
-
- // Generate email
- generateEmail(students[studentCount].name, students[studentCount].studentID,
- students[studentCount].email);
-
- printf("\nStudent added successfully!\n");
- printf("Generated Email: %s\n", students[studentCount].email);
-
- studentCount++;
+ printf("\nTotal unique words: %d\n", wordCount);
 }
-// Lookup student by ID
-void lookupStudent() {
- char searchID[20];
- int found = 0;
+// Export results to file
+int exportResults(const char *filename, WordFreq *wordList, int wordCount) {
+ FILE *file = fopen(filename, "w");
+ if(!file) return -1;
 
- printf("\n--- Lookup Student Email ---\n");
- printf("Enter student ID: ");
- fgets(searchID, 20, stdin);
- searchID[strcspn(searchID, "\n")] = 0;
-
- for(int i = 0; i < studentCount; i++) {
- if(strcmp(students[i].studentID, searchID) == 0) {
- printf("\nStudent Found:\n");
- printf("Name: %s\n", students[i].name);
- printf("Student ID: %s\n", students[i].studentID);
- printf("Email: %s\n", students[i].email);
- found = 1;
- break;
- }
+ for(int i = 0; i < wordCount; i++) {
+ fprintf(file, "%s: %d\n", wordList[i].word, wordList[i].count);
  }
 
- if(!found) {
- printf("\nStudent with ID '%s' not found!\n", searchID);
- }
-}
-// Display all students
-void displayAllStudents() {
- if(studentCount == 0) {
- printf("\nNo students in the system yet.\n");
- return;
- }
-
- printf("\n--- All Students ---\n");
- printf("%-30s %-15s %-40s\n", "Name", "Student ID", "Email");
- printf("--------------------------------------------------------------------------------\n");
-
- for(int i = 0; i < studentCount; i++) {
- printf("%-30s %-15s %-40s\n",
- students[i].name,
- students[i].studentID,
- students[i].email);
- }
-}
-// Clear input buffer
-void clearInputBuffer() {
- int c;
- while((c = getchar()) != '\n' && c != EOF);
+ fclose(file);
+ return 0;
 }
