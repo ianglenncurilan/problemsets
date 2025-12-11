@@ -1,202 +1,141 @@
+//Problem Set 3: Palindrome and Anagram Checker
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#define MAX_STUDENTS 100
-#define MAX_NAME_LENGTH 100
-#define MAX_EMAIL_LENGTH 150
-#define DOMAIN "@university.edu"
-// Student structure
-typedef struct {
- char name[MAX_NAME_LENGTH];
- char studentID[20];
- char email[MAX_EMAIL_LENGTH];
-} Student;
-// Global array to store students
-Student students[MAX_STUDENTS];
-int studentCount = 0;
-// Function prototypes
-void toLowerCase(char *str);
-void generateEmail(char *name, char *studentID, char *email);
-int isDuplicateEmail(char *email);
-void addStudent();
-void lookupStudent();
-void displayAllStudents();
-void clearInputBuffer();
+#define MAX_SIZE 200
+// Function Prototypes
+void cleanString(char *source, char *dest);
+void sortString(char *str);
+int checkPalindrome(char *str);
+int checkAnagram(char *str1, char *str2);
+void flushInputBuffer();
 int main() {
  int choice;
-
- printf("===================================\n");
- printf(" STUDENT EMAIL GENERATOR\n");
- printf("===================================\n\n");
-
+ char input1[MAX_SIZE];
+ char input2[MAX_SIZE];
  do {
- printf("\n--- MENU ---\n");
- printf("1. Add Student\n");
- printf("2. Lookup Student Email by ID\n");
- printf("3. Display All Students\n");
- printf("4. Exit\n");
- printf("Enter choice: ");
- scanf("%d", &choice);
- clearInputBuffer();
+ // Menu Display
+ printf("\n===== Palindrome & Anagram Tool =====\n");
+ printf("1. Palindrome Checker\n");
+ printf("2. Anagram Checker\n");
+ printf("3. Exit\n");
+ printf("Choose an option: ");
 
- switch(choice) {
+ if (scanf("%d", &choice) != 1) {
+ // Handle non-integer inputs to prevent infinite loops
+ printf("Invalid input. Please enter a number.\n");
+ flushInputBuffer();
+ continue;
+ }
+ flushInputBuffer(); // Consume the newline character left by scanf
+ switch (choice) {
  case 1:
- addStudent();
+ printf("Enter word/phrase: ");
+ fgets(input1, MAX_SIZE, stdin);
+
+ // Remove trailing newline from fgets if present
+ input1[strcspn(input1, "\n")] = 0;
+ if (checkPalindrome(input1)) {
+ printf("Output: Palindrome\n");
+ } else {
+ printf("Output: Not Palindrome\n");
+ }
  break;
  case 2:
- lookupStudent();
+ printf("Enter first word/phrase: ");
+ fgets(input1, MAX_SIZE, stdin);
+ input1[strcspn(input1, "\n")] = 0;
+ printf("Enter second word/phrase: ");
+ fgets(input2, MAX_SIZE, stdin);
+ input2[strcspn(input2, "\n")] = 0;
+ if (checkAnagram(input1, input2)) {
+ printf("Output: Anagrams\n");
+ } else {
+ printf("Output: Not Anagrams\n");
+ }
  break;
  case 3:
- displayAllStudents();
- break;
- case 4:
- printf("\nExiting system. Goodbye!\n");
+ printf("Exiting program...\n");
  break;
  default:
- printf("\nInvalid choice! Please try again.\n");
+ printf("Invalid option. Please try again.\n");
  }
- } while(choice != 4);
-
+ } while (choice != 3);
  return 0;
 }
-// Convert string to lowercase
-void toLowerCase(char *str) {
- for(int i = 0; str[i]; i++) {
- str[i] = tolower(str[i]);
+// --- Helper Functions ---
+/* * Removes spaces, punctuation, and converts to lowercase.
+* Input: "Never odd or even" -> Output: "neveroddoreven"
+*/
+void cleanString(char *source, char *dest) {
+ int j = 0;
+ for (int i = 0; source[i] != '\0'; i++) {
+ // isalnum checks if character is a letter or number
+ if (isalnum(source[i])) {
+ dest[j++] = tolower(source[i]);
+ }
+ }
+ dest[j] = '\0'; // Null-terminate the new string
+}
+/* * Sorts a string alphabetically using Bubble Sort.
+* Necessary for the Anagram logic.
+*/
+void sortString(char *str) {
+ int n = strlen(str);
+ char temp;
+ for (int i = 0; i < n - 1; i++) {
+ for (int j = 0; j < n - i - 1; j++) {
+ if (str[j] > str[j + 1]) {
+ temp = str[j];
+ str[j] = str[j + 1];
+ str[j + 1] = temp;
+ }
+ }
  }
 }
-// Generate email from name and student ID
-void generateEmail(char *name, char *studentID, char *email) {
- char tempName[MAX_NAME_LENGTH];
- char baseEmail[MAX_EMAIL_LENGTH];
- int idLen = strlen(studentID);
-
- // Copy name to temp buffer
- strcpy(tempName, name);
- toLowerCase(tempName);
-
- // Replace spaces with dots and build email prefix
- char emailPrefix[MAX_EMAIL_LENGTH] = "";
- char *token = strtok(tempName, " ");
- int firstToken = 1;
-
- while(token != NULL) {
- if(!firstToken) {
- strcat(emailPrefix, ".");
+/* * Checks if a string reads the same forwards and backwards.
+* Returns 1 (true) or 0 (false).
+*/
+int checkPalindrome(char *str) {
+ char clean[MAX_SIZE];
+ cleanString(str, clean); // Pre-process the string
+ int start = 0;
+ int end = strlen(clean) - 1;
+ while (start < end) {
+ if (clean[start] != clean[end]) {
+ return 0; // Not a palindrome
  }
- strcat(emailPrefix, token);
- firstToken = 0;
- token = strtok(NULL, " ");
+ start++;
+ end--;
  }
-
- // Get last 2 digits of student ID
- char lastTwoDigits[3];
- if(idLen >= 2) {
- lastTwoDigits[0] = studentID[idLen - 2];
- lastTwoDigits[1] = studentID[idLen - 1];
- lastTwoDigits[2] = '\0';
- } else {
- strcpy(lastTwoDigits, studentID);
- }
-
- // Create base email
- sprintf(baseEmail, "%s%s%s", emailPrefix, lastTwoDigits, DOMAIN);
- strcpy(email, baseEmail);
-
- // Check for duplicates and handle them
- int duplicateCount = 0;
- while(isDuplicateEmail(email)) {
- duplicateCount++;
- // Remove domain, add sequence number, then re-add domain
- char tempEmail[MAX_EMAIL_LENGTH];
- strcpy(tempEmail, baseEmail);
- // Remove @university.edu
- tempEmail[strlen(tempEmail) - strlen(DOMAIN)] = '\0';
- sprintf(email, "%s_%d%s", tempEmail, duplicateCount, DOMAIN);
- }
+ return 1; // Is a palindrome
 }
-// Check if email already exists
-int isDuplicateEmail(char *email) {
- for(int i = 0; i < studentCount; i++) {
- if(strcmp(students[i].email, email) == 0) {
+/* * Checks if two strings contain the exact same characters.
+* Returns 1 (true) or 0 (false).
+*/
+int checkAnagram(char *str1, char *str2) {
+ char clean1[MAX_SIZE];
+ char clean2[MAX_SIZE];
+ // 1. Clean both strings (remove spaces, symbols, lowercase)
+ cleanString(str1, clean1);
+ cleanString(str2, clean2);
+ // 2. If lengths differ, they cannot be anagrams
+ if (strlen(clean1) != strlen(clean2)) {
+ return 0;
+ }
+ // 3. Sort both strings
+ sortString(clean1);
+ sortString(clean2);
+ // 4. Compare sorted strings
+ if (strcmp(clean1, clean2) == 0) {
  return 1;
- }
- }
+ } else {
  return 0;
-}
-// Add a new student
-void addStudent() {
- if(studentCount >= MAX_STUDENTS) {
- printf("\nError: Maximum student limit reached!\n");
- return;
- }
-
- printf("\n--- Add New Student ---\n");
- printf("Enter student name: ");
- fgets(students[studentCount].name, MAX_NAME_LENGTH, stdin);
- students[studentCount].name[strcspn(students[studentCount].name, "\n")] = 0; //
-Remove newline
-
- printf("Enter student ID: ");
- fgets(students[studentCount].studentID, 20, stdin);
- students[studentCount].studentID[strcspn(students[studentCount].studentID, "\n")] =
-0;
-
- // Generate email
- generateEmail(students[studentCount].name, students[studentCount].studentID,
- students[studentCount].email);
-
- printf("\nStudent added successfully!\n");
- printf("Generated Email: %s\n", students[studentCount].email);
-
- studentCount++;
-}
-// Lookup student by ID
-void lookupStudent() {
- char searchID[20];
- int found = 0;
-
- printf("\n--- Lookup Student Email ---\n");
- printf("Enter student ID: ");
- fgets(searchID, 20, stdin);
- searchID[strcspn(searchID, "\n")] = 0;
-
- for(int i = 0; i < studentCount; i++) {
- if(strcmp(students[i].studentID, searchID) == 0) {
- printf("\nStudent Found:\n");
- printf("Name: %s\n", students[i].name);
- printf("Student ID: %s\n", students[i].studentID);
- printf("Email: %s\n", students[i].email);
- found = 1;
- break;
- }
- }
-
- if(!found) {
- printf("\nStudent with ID '%s' not found!\n", searchID);
  }
 }
-// Display all students
-void displayAllStudents() {
- if(studentCount == 0) {
- printf("\nNo students in the system yet.\n");
- return;
- }
-
- printf("\n--- All Students ---\n");
- printf("%-30s %-15s %-40s\n", "Name", "Student ID", "Email");
- printf("--------------------------------------------------------------------------------\n");
-
- for(int i = 0; i < studentCount; i++) {
- printf("%-30s %-15s %-40s\n",
- students[i].name,
- students[i].studentID,
- students[i].email);
- }
-}
-// Clear input buffer
-void clearInputBuffer() {
+/* * Clears the input buffer to prevent skipping fgets inputs
+*/
+void flushInputBuffer() {
  int c;
- while((c = getchar()) != '\n' && c != EOF);
+ while ((c = getchar()) != '\n' && c != EOF);
 }
